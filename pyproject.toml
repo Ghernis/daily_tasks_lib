@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "daily-tasks"
+version = "0.1.0"
+description = "CLI to log daily time per project with subtasks and JSON export"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "typer>=0.12.0",
+    "sqlmodel>=0.0.22",
+    "questionary>=2.0.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[project.scripts]
+daily-tasks = "daily_tasks.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/daily_tasks"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
