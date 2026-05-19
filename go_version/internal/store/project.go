@@ -20,9 +20,10 @@ type Project struct {
 func AddProject(ctx context.Context, db *sql.DB, name string, description string, defaultSubtasks []string) (*Project, error) {
 	name = strings.TrimSpace(name)
 	description = strings.TrimSpace(description)
+	createdAt := time.Now().Format("2006-01-02 15:04:05")
 	res, err := db.ExecContext(ctx,
-		`INSERT INTO project (name, description) VALUES (?, ?)`,
-		name, description,
+		`INSERT INTO project (name, description, created_at) VALUES (?, ?, ?)`,
+		name, description, createdAt,
 	)
 	if err != nil {
 		return nil, err

@@ -124,6 +124,39 @@ func TestMergeSubtaskRows(t *testing.T) {
 	}
 }
 
+func TestSaveDailyTicketWithoutCreatedAtDefault(t *testing.T) {
+	conn := testDB(t)
+	ctx := context.Background()
+	_, err := conn.ExecContext(ctx, `DROP TABLE IF EXISTS ticket_daily_task_subtask`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = conn.ExecContext(ctx, `DROP TABLE IF EXISTS ticket_daily_task`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = conn.ExecContext(ctx, `DROP TABLE IF EXISTS ticket_daily`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Schema like SQLModel/Python: NOT NULL created_at without SQL DEFAULT.
+	_, err = conn.ExecContext(ctx, `
+		CREATE TABLE ticket_daily (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			"date" DATE NOT NULL UNIQUE,
+			title VARCHAR(500) NOT NULL,
+			description VARCHAR(4000) NOT NULL DEFAULT '',
+			ritm_number VARCHAR(128),
+			created_at DATETIME NOT NULL
+		)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveDailyTicket(ctx, conn, "2026-05-20", "T", "D", nil); err != nil {
+		t.Fatalf("save failed: %v", err)
+	}
+}
+
 func TestResolveProjectByID(t *testing.T) {
 	conn := testDB(t)
 	ctx := context.Background()

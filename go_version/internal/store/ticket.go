@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 type DailyTicket struct {
@@ -43,9 +44,10 @@ func SaveDailyTicket(ctx context.Context, db *sql.DB, entryDate, title, descript
 		if title == "" {
 			title = fmt.Sprintf("Daily work %s", entryDate)
 		}
+		createdAt := time.Now().Format("2006-01-02 15:04:05")
 		res, err := tx.ExecContext(ctx,
-			`INSERT INTO ticket_daily ("date", title, description) VALUES (?, ?, ?)`,
-			entryDate, title, description,
+			`INSERT INTO ticket_daily ("date", title, description, created_at) VALUES (?, ?, ?, ?)`,
+			entryDate, title, description, createdAt,
 		)
 		if err != nil {
 			return err
