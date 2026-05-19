@@ -1,0 +1,40 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+
+    - name: Tidy Go modules
+      run: |
+        cd go_version
+        go mod tidy
+        cd ..
+
+    - name: Build binaries
+      run: |
+        cd go_version
+        GOOS=linux GOARCH=amd64 go build -o daily-tasks ./cmd/daily-tasks
+        GOOS=windows GOARCH=amd64 go build -o daily-tasks.exe ./cmd/daily-tasks
+
+    - name: Upload Release Assets
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          go_version/daily-tasks
+          go_version/daily-tasks.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
