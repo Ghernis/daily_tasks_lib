@@ -27,13 +27,15 @@ const (
 )
 
 type checkItem struct {
+	id      int64
 	name    string
+	desc    string
 	value   string
 	checked bool
 }
 
-func (i checkItem) Title() string       { return i.name }
-func (i checkItem) Description() string { return "" }
+func (i checkItem) Title() string       { return fmt.Sprintf("#%d · %s", i.id, i.name) }
+func (i checkItem) Description() string { return strings.TrimSpace(i.desc) }
 func (i checkItem) FilterValue() string { return i.value }
 
 type projectItem struct {
@@ -71,8 +73,8 @@ type model struct {
 
 const defaultTermWidth = 80
 
-func newStyledList(items []list.Item, title string, width, height int) list.Model {
-	d := newCheckboxDelegate()
+func newStyledList(items []list.Item, title string, width, height int, withDescriptions bool) list.Model {
+	d := newCheckboxDelegate(withDescriptions)
 	d.styles.NormalTitle = theme.ListNormalTitle
 	d.styles.SelectedTitle = theme.ListSelectedTitle
 	d.styles.FilterMatch = theme.ListFilterMatch
@@ -155,12 +157,14 @@ func newModel(db *sql.DB, logDate string) (*model, error) {
 		pi := projectItem{id: p.ID, name: p.Name, desc: p.Description}
 		items = append(items, pi)
 		listItems = append(listItems, checkItem{
+			id:      p.ID,
 			name:    p.Name,
+			desc:    p.Description,
 			value:   fmt.Sprintf("%d", p.ID),
 			checked: false,
 		})
 	}
-	l := newStyledList(listItems, "◈ Select projects", defaultTermWidth, 12)
+	l := newStyledList(listItems, "◈ Select projects", defaultTermWidth, 12, true)
 
 	ti := textinput.New()
 	ti.Placeholder = "Ticket title"
@@ -192,7 +196,7 @@ func newModel(db *sql.DB, logDate string) (*model, error) {
 	}
 	di.SetValue(descDefault)
 
-	emptySubtasks := newStyledList([]list.Item{}, "◈ Subtasks", defaultTermWidth, 12)
+	emptySubtasks := newStyledList([]list.Item{}, "◈ Subtasks", defaultTermWidth, 12, false)
 
 	m := &model{
 		db:           db,
@@ -387,10 +391,10 @@ func (m *model) loadSubtaskStep() error {
 			name:    label,
 			value:   label,
 			checked: defaultSet[label],
-		})
+		}) // id 0 for subtasks
 	}
 	w, h := m.listDimensions()
-	m.subtaskList = newStyledList(items, fmt.Sprintf("◈ Subtasks · %s", p.name), w, h)
+	m.subtaskList = newStyledList(items, fmt.Sprintf("◈ Subtasks · #%d %s", p.id, p.name), w, h, false)
 	m.subtaskItems = nil
 	for _, it := range items {
 		if ci, ok := it.(checkItem); ok {
@@ -512,14 +516,14 @@ func (m *model) View() string {
 		body.WriteString(theme.Help.Render("enter continue · esc quit"))
 	case stepHours:
 		p := m.selectedProj[m.projIndex]
-		body.WriteString(theme.Title.Render(fmt.Sprintf("Hours · %s", p.name)))
+		body.WriteString(theme.Title.Render(fmt.Sprintf("Hours · #%d %s", p.id, p.name)))
 		body.WriteString(" ")
 		body.WriteString(theme.Hint.Render(fmt.Sprintf("(%d/%d)", m.projIndex+1, len(m.selectedProj))))
 		body.WriteString("\n")
 		body.WriteString(m.hoursInput.View())
 		body.WriteString("\n")
 		if strings.TrimSpace(p.desc) != "" {
-			body.WriteString(theme.Subtitle.Render("↳ " + truncate(p.desc, 72)))
+			body.WriteString(theme.Subtitle.Render("↳ " + strings.TrimSpace(p.desc)))
 			body.WriteString("\n")
 		}
 		body.WriteString(theme.Help.Render("enter continue · esc quit"))

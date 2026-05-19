@@ -3,9 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strings"
-	"text/tabwriter"
 
 	"daily-tasks/go_version/internal/store"
 
@@ -32,14 +30,14 @@ func projectAddCmd() *cobra.Command {
 		Short: "Add a project",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, err := store.AddProject(cmd.Context(), DB, args[0], description, subtasks)
+			p, err := store.AddProject(cmd.Context(), DB, args[0], description, subtasks)
 			if err != nil {
 				if strings.Contains(err.Error(), "UNIQUE") {
 					return fmt.Errorf("project name already exists: %q", args[0])
 				}
 				return err
 			}
-			fmt.Printf("Created project %q.\n", args[0])
+			fmt.Printf("Created project #%d %q.\n", p.ID, p.Name)
 			return nil
 		},
 	}
@@ -51,65 +49,101 @@ func projectAddCmd() *cobra.Command {
 func projectListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
-		Short: "List projects",
+		Short: "List projects (full descriptions)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rows, err := store.ListProjects(cmd.Context(), DB)
 			if err != nil {
 				return err
 			}
-			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "ID\tNAME\tDESCRIPTION\tCREATED_AT")
 			for _, p := range rows {
+				fmt.Printf("#%-4d  %s\n", p.ID, p.Name)
 				desc := strings.TrimSpace(p.Description)
-				if len(desc) > 48 {
-					desc = desc[:45] + "..."
+				if desc != "" {
+					fmt.Printf("       %s\n", desc)
+				} else {
+					fmt.Println("       (no description)")
 				}
-				fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", p.ID, p.Name, desc, p.CreatedAt.Format("2006-01-02T15:04:05"))
+				fmt.Printf("       created %s\n\n", p.CreatedAt.Format("2006-01-02 15:04:05"))
 			}
-			return w.Flush()
+			if len(rows) == 0 {
+				fmt.Println("No projects yet.")
+			}
+			return nil
 		},
 	}
 }
 
 func projectSetDescriptionCmd() *cobra.Command {
+	var projectID int64
 	var description string
 	cmd := &cobra.Command{
-		Use:   "set-description NAME",
-		Short: "Set project description",
-		Args:  cobra.ExactArgs(1),
+		Use:   "set-description [NAME]",
+		Short: "Set project description (use -p ID or NAME)",
+		Args:  cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := store.SetProjectDescription(cmd.Context(), DB, args[0], description); err != nil {
-				if errors.Is(err, store.ErrProjectNotFound) {
-					return fmt.Errorf("unknown project: %q", args[0])
+			name := ""
+			if len(args) > 0 {
+				if projectID > 0 && description == "" {
+					description = args[0]
+				} else {
+					name = args[0]
+					if len(args) > 1 && description == "" {
+						description = args[1]
+					}
 				}
+			}
+			if description == "" {
+				return fmt.Errorf("description is required (-d or as argument)")
+			}
+			if projectID <= 0 && name == "" {
+				return fmt.Errorf("pass -p/--project with id, or the project NAME")
+			}
+			p, err := resolveProject(cmd.Context(), DB, projectID, name)
+			if err != nil {
 				return err
 			}
-			fmt.Printf("Updated description for %q.\n", args[0])
+			if err := store.SetProjectDescription(cmd.Context(), DB, p.ID, "", description); err != nil {
+				return err
+			}
+			fmt.Printf("Updated description for #%d %q.\n", p.ID, p.Name)
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&description, "description", "d", "", "Fixed task description")
-	_ = cmd.MarkFlagRequired("description")
+	cmd.Flags().Int64VarP(&projectID, "project", "p", 0, "Project id (from project list)")
+	cmd.Flags().StringVarP(&description, "description", "d", "", "Fixed task description (or pass as argument with -p)")
 	return cmd
 }
 
 func projectSetDefaultSubtasksCmd() *cobra.Command {
+	var projectID int64
 	var subtasks []string
 	cmd := &cobra.Command{
-		Use:   "set-default-subtasks NAME",
-		Short: "Replace default subtasks for a project",
-		Args:  cobra.ExactArgs(1),
+		Use:   "set-default-subtasks [NAME]",
+		Short: "Replace default subtasks (use -p ID or NAME)",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := store.SetDefaultSubtasks(cmd.Context(), DB, args[0], subtasks); err != nil {
+			name := ""
+			if len(args) > 0 {
+				name = args[0]
+			}
+			if projectID <= 0 && name == "" {
+				return fmt.Errorf("pass -p/--project with id, or the project NAME")
+			}
+			p, err := resolveProject(cmd.Context(), DB, projectID, name)
+			if err != nil {
+				return err
+			}
+			if err := store.SetDefaultSubtasks(cmd.Context(), DB, p.ID, "", subtasks); err != nil {
 				if errors.Is(err, store.ErrProjectNotFound) {
-					return fmt.Errorf("unknown project: %q", args[0])
+					return fmt.Errorf("unknown project id: %d", projectID)
 				}
 				return err
 			}
-			fmt.Printf("Updated default subtasks for %q.\n", args[0])
+			fmt.Printf("Updated default subtasks for #%d %q.\n", p.ID, p.Name)
 			return nil
 		},
 	}
+	cmd.Flags().Int64VarP(&projectID, "project", "p", 0, "Project id (from project list)")
 	cmd.Flags().StringArrayVarP(&subtasks, "subtask", "s", nil, "Default subtask (repeatable)")
 	return cmd
 }

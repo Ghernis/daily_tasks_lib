@@ -28,8 +28,10 @@ daily-tasks config set-author -n "Your Name" -e "you@company.com" --sn-id "SE406
 daily-tasks config show-author
 daily-tasks project add "My project" -d "Description" -s "Subtask A"
 daily-tasks project list
+daily-tasks project set-description -p 1 "New description"
+daily-tasks project set-description -p 1 -d "New description"
 daily-tasks project set-description "My project" -d "New description"
-daily-tasks project set-default-subtasks "My project" -s "A" -s "B"
+daily-tasks project set-default-subtasks -p 1 -s "A" -s "B"
 daily-tasks log
 daily-tasks log --date 2026-05-18
 daily-tasks export

@@ -139,13 +139,10 @@ func ListPastSubtaskNames(ctx context.Context, db *sql.DB, projectID int64, befo
 	return out, rows.Err()
 }
 
-func SetDefaultSubtasks(ctx context.Context, db *sql.DB, projectName string, titles []string) error {
-	p, err := GetProjectByName(ctx, db, projectName)
+func SetDefaultSubtasks(ctx context.Context, db *sql.DB, projectID int64, projectName string, titles []string) error {
+	p, err := ResolveProject(ctx, db, projectID, projectName)
 	if err != nil {
 		return err
-	}
-	if p == nil {
-		return ErrProjectNotFound
 	}
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
@@ -172,13 +169,10 @@ func SetDefaultSubtasks(ctx context.Context, db *sql.DB, projectName string, tit
 	return tx.Commit()
 }
 
-func SetProjectDescription(ctx context.Context, db *sql.DB, projectName, description string) error {
-	p, err := GetProjectByName(ctx, db, projectName)
+func SetProjectDescription(ctx context.Context, db *sql.DB, projectID int64, projectName, description string) error {
+	p, err := ResolveProject(ctx, db, projectID, projectName)
 	if err != nil {
 		return err
-	}
-	if p == nil {
-		return ErrProjectNotFound
 	}
 	_, err = db.ExecContext(ctx, `UPDATE project SET description = ? WHERE id = ?`,
 		strings.TrimSpace(description), p.ID)

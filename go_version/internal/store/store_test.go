@@ -124,6 +124,29 @@ func TestMergeSubtaskRows(t *testing.T) {
 	}
 }
 
+func TestResolveProjectByID(t *testing.T) {
+	conn := testDB(t)
+	ctx := context.Background()
+	p, _ := store.AddProject(ctx, conn, "ByID", "hello", nil)
+	got, err := store.ResolveProject(ctx, conn, p.ID, "")
+	if err != nil || got.Name != "ByID" {
+		t.Fatalf("%+v %v", got, err)
+	}
+}
+
+func TestSetProjectDescriptionByID(t *testing.T) {
+	conn := testDB(t)
+	ctx := context.Background()
+	p, _ := store.AddProject(ctx, conn, "Desc", "", nil)
+	if err := store.SetProjectDescription(ctx, conn, p.ID, "", "updated"); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := store.GetProjectByID(ctx, conn, p.ID)
+	if got.Description != "updated" {
+		t.Fatalf("got %q", got.Description)
+	}
+}
+
 func TestParseHours(t *testing.T) {
 	v, err := store.ParseHours("1,5")
 	if err != nil || v != 1.5 {
